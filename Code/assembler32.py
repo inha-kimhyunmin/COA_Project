@@ -47,6 +47,12 @@
     작성: DXOR $tX $tY $tZ $tW => rs, rt, rd, ri (기존 규칙 유지)
 
 INSTR_SPECS: 명령어 이름을 {type, opcode, funct} 로 매핑.
+
+입력 형식 일반 규칙:
+- "명령어" 다음에는 공백 1개를 권장합니다.
+- 피연산자는 쉼표+공백(`, `)으로 구분하는 형식을 지원합니다. 예: `ADD $t1, $t2, $t3`
+- 내부 처리에서 모든 쉼표는 자동 제거되며 다중 공백은 1개로 정규화됩니다.
+- 따라서 `ADD $t1 $t2 $t3` 와 `ADD $t1, $t2, $t3` 모두 동일하게 동작합니다.
 """
 from typing import List, Dict, Tuple
 import sys
@@ -223,12 +229,15 @@ def encode_D(mn: str, spec: Dict[str, str], operands: List[str]) -> str:
 # ==========================
 
 def assemble_line(line: str) -> Tuple[str, str, str]:
-    # 주석 제거 및 공백 정리
+    # 주석 제거 및 공백 정리 + 쉼표 제거(요청: 쉼표 자동 제거)
     line = line.strip()
     if not line:
         return ('', '', '')
+    # 쉼표 제거 후 공백 하나로 정규화
+    no_commas = line.replace(',', ' ')
+    norm = re.sub(r"\s+", " ", no_commas)
     # 명령어와 피연산자 분리
-    parts = line.replace(',', ' ').split()
+    parts = norm.split()
     if not parts:
         return ('', '', '')
     mnemonic = parts[0].upper()
