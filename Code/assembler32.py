@@ -2,20 +2,51 @@
 32비트 명령어 어셈블러
 
 사용자 정의 ISA 규칙에 따라 어셈블리 코드를 32비트 기계어로 변환합니다.
-규칙:
-- R 타입: opcode[6] rs[5] rt[5] rd[5] sh[5] funct[6]
-    * 기본 R: "명령어 $tX $tY $tZ" => rs, rt, rd; sh='00000'
-    * SLL/SRL/SRA: "명령어 $tX $tY imm" => rs, rt, sh=imm(10진수), rd='00000'
-    * JR: "JR $tX" => rs; rt=rd=sh='00000'
-    * SLXOR/SRXOR: "명령어 $tX $tY $tZ imm" => rs, rt, rd, sh=imm
-- I 타입: opcode[6] rs[5] rt[5] imm[16]
-    * "명령어 $tX $tY imm"
-- J 타입: opcode[6] target[26]
-    * "명령어 imm"
-- D 타입(DXOR): opcode[6] rs[5] rt[5] rd[5] ri[5] funct[6]
-    * "DXOR $tX $tY $tZ $tW"
 
-전역 사양(INSTR_SPECS)은 명령어 이름을 {type, opcode, funct(옵션)}로 매핑합니다. 수정/추가가 쉽도록 구성되어 있습니다.
+==== 이번 수정으로 확정된 피연산자 기술 규칙 (요청 사항 반영) ====
+기본 물리적 비트 배치는 동일: R 형식은 opcode[6] rs[5] rt[5] rd[5] sh[5] funct[6]
+
+[R 타입 기본 (ADD/SUB/AND/OR/XOR/NOR/ROT 등)]
+    작성:  명령어 $tX $tY $tZ
+    의미:  첫 번째 = rd, 두 번째 = rs, 세 번째 = rt (요청: "$tx $ty $tz -> rd rs rt")
+    인코딩: opcode rs rt rd sh=0 funct
+
+[R 타입 Shift (SLL/SRL/SRA)]
+    작성:  명령어 $tX $tY imm
+    의미:  첫 번째 = rd, 두 번째 = rs, imm = sh (요청: "$tx $ty imm -> rd rs sh")
+    인코딩에서 rt 는 0 으로 채움(opcode rs 0 rd sh funct)
+
+[JR]
+    작성: JR $tX
+    의미: rs = $tX, 나머지(rt, rd, sh)=0
+
+[SLXOR / SRXOR]
+    작성: 명령어 $tX $tY $tZ sh
+    의미: 첫 번째 = rd, 두 번째 = rs, 세 번째 = rt, 네 번째 = sh (요청: "$tx $ty $tz sh -> rd rs rt sh")
+    인코딩: opcode rs rt rd sh funct
+
+[I 타입 (ADDI/SUBI/ANDI/ORI/XORI/LW/SW 등 BEQ/BNE 제외)]
+    작성: 명령어 $tX $tY imm
+    의미: 첫 번째 = rt, 두 번째 = rs, imm = 즉값 (요청: "$tx $ty imm -> rt rs imm")
+    인코딩: opcode rs rt imm (비트 배열은 rs 위치가 먼저 오므로 내부적으로 재배치)
+
+    LW / SW 추가 지원 메모리 형식:
+        작성: LW  $tX imm($tY)   또는   SW $tX imm($tY)
+        의미: $tX = rt, $tY = rs, imm = 16비트 즉값
+        여전히 내부 인코딩: opcode rs rt imm
+        예: LW $t1 4($t2)  -> rt=$t1, rs=$t2, imm=4
+
+[I 타입 분기 (BEQ/BNE)]
+    기존 유지: 명령어 $tX $tY imm  => 첫 번째 = rs, 두 번째 = rt, imm = 오프셋
+    (요청에서 BEQ/BNE는 예외로 함)
+
+[J 타입]
+    작성: 명령어 imm  => target = imm
+
+[D 타입 (DXOR)]
+    작성: DXOR $tX $tY $tZ $tW => rs, rt, rd, ri (기존 규칙 유지)
+
+INSTR_SPECS: 명령어 이름을 {type, opcode, funct} 로 매핑.
 """
 from typing import List, Dict, Tuple
 import sys
@@ -91,18 +122,6 @@ def parse_int(token: str) -> int:
         return int(token, 16)
     return int(token)
 
-# 오프셋 형식 파서: "imm($tX)" => (imm, rs)
-def parse_offset(token: str) -> Tuple[int, int]:
-    token = token.strip()
-    # 예: 12($t3)
-    m = re.match(r"^(-?\d+|0x[0-9a-fA-F]+)\((\$t\d+)\)$", token)
-    if not m:
-        raise ValueError(f"오프셋 형식이 올바르지 않습니다: '{token}' (예: 12($t3))")
-    imm_str, rs_tok = m.group(1), m.group(2)
-    imm = parse_int(imm_str)
-    rs = parse_register(rs_tok)
-    return imm, rs
-
 # ==========================
 # 각 타입 인코더
 # ==========================
@@ -117,15 +136,14 @@ def encode_R(opcode: str, funct: str, rs: int, rt: int, rd: int, sh: int = 0) ->
         funct
     )
 
-# SLL/SRL/SRA: "명령어 $tX $tY imm"  => rs, rt, sh; rd=0
-# 사용자 규칙에 따라 rs, rt 제공; rd는 0 고정.
+# SLL/SRL/SRA: "명령어 $tX $tY imm"  => rd, rs, sh (요청 반영)
+# 내부 비트배치(opcode rs rt rd sh funct)에 맞추기 위해 rt=0 고정.
 def encode_R_SLL(mn: str, spec: Dict[str, str], operands: List[str]) -> str:
     if len(operands) != 3:
-        raise ValueError(f"{mn} 형식: {mn} rd rs imm")
+        raise ValueError(f"{mn} expects: {mn} $tX $tY imm")
     rd = parse_register(operands[0])
     rs = parse_register(operands[1])
     sh = parse_int(operands[2])
-    # SLL/SRL/SRA: rt는 0으로 고정
     return encode_R(spec['opcode'], spec['funct'], rs, 0, rd, sh)
 
 # JR: "JR $tX"  => rs; rt=rd=sh=0
@@ -135,32 +153,52 @@ def encode_R_JR(mn: str, spec: Dict[str, str], operands: List[str]) -> str:
     rs = parse_register(operands[0])
     return encode_R(spec['opcode'], spec['funct'], rs, 0, 0, 0)
 
-# 기본 R: "명령어 $tX $tY $tZ"  => rs, rt, rd; sh=0
+# 기본 R: "명령어 $tX $tY $tZ"  => rd, rs, rt (요청 반영); sh=0
 def encode_R_default(mn: str, spec: Dict[str, str], operands: List[str]) -> str:
     if len(operands) != 3:
         raise ValueError(f"{mn} expects: {mn} $tX $tY $tZ")
-    rs = parse_register(operands[0])
-    rt = parse_register(operands[1])
-    rd = parse_register(operands[2])
+    rd = parse_register(operands[0])
+    rs = parse_register(operands[1])
+    rt = parse_register(operands[2])
     return encode_R(spec['opcode'], spec['funct'], rs, rt, rd, 0)
 
-# SLXOR/SRXOR: "명령어 $tX $tY $tZ imm" => rs, rt, rd, sh
+# SLXOR/SRXOR: "명령어 $tX $tY $tZ sh" => rd, rs, rt, sh (요청 반영)
 def encode_R_SH(mn: str, spec: Dict[str, str], operands: List[str]) -> str:
     if len(operands) != 4:
-        raise ValueError(f"{mn} expects: {mn} $tX $tY $tZ imm")
-    rs = parse_register(operands[0])
-    rt = parse_register(operands[1])
-    rd = parse_register(operands[2])
+        raise ValueError(f"{mn} expects: {mn} $tX $tY $tZ sh")
+    rd = parse_register(operands[0])
+    rs = parse_register(operands[1])
+    rt = parse_register(operands[2])
     sh = parse_int(operands[3])
     return encode_R(spec['opcode'], spec['funct'], rs, rt, rd, sh)
 
-# I 타입: "명령어 $tX $tY imm" => opcode rs rt imm
+# I 타입 (BEQ/BNE 제외): "명령어 $tX $tY imm" => rt, rs, imm (요청 반영)
+# 내부 인코딩은 opcode rs rt imm 이므로 순서 변환 필요.
 def encode_I(mn: str, spec: Dict[str, str], operands: List[str]) -> str:
     if len(operands) != 3:
-        raise ValueError(f"{mn} expects: {mn} $tX $tY imm")
-    rs = parse_register(operands[0])
-    rt = parse_register(operands[1])
-    imm = parse_int(operands[2])
+        # LW/SW 메모리 형식 처리: $tX imm($tY)
+        if mn in ('LW','SW') and len(operands) == 2:
+            rt_token = operands[0]
+            mem_token = operands[1]
+            # 패턴: imm($tY)
+            m = re.match(r'^(-?0x[0-9a-fA-F]+|-?\d+)\(\$t(\d+)\)$', mem_token)
+            if not m:
+                raise ValueError(f"{mn} expects: {mn} $tX imm($tY) 또는 {mn} $tX $tY imm")
+            imm_str, rs_num = m.group(1), m.group(2)
+            rt = parse_register(rt_token)
+            rs = int(rs_num)
+            imm = parse_int(imm_str)
+            return spec['opcode'] + to_bin(rs, 5) + to_bin(rt, 5) + to_bin(imm, 16)
+        raise ValueError(f"{mn} expects: {mn} $tX $tY imm" + (" 또는 $tX imm($tY)" if mn in ('LW','SW') else ""))
+    if mn in ('BEQ', 'BNE'):
+        rs = parse_register(operands[0])
+        rt = parse_register(operands[1])
+        imm = parse_int(operands[2])
+    else:
+        # 일반 I 타입 (LW/SW 포함) 세 피연산자 형식: 첫 번째=rt, 두 번째=rs
+        rt = parse_register(operands[0])
+        rs = parse_register(operands[1])
+        imm = parse_int(operands[2])
     return spec['opcode'] + to_bin(rs, 5) + to_bin(rt, 5) + to_bin(imm, 16)
 
 # J 타입: "명령어 imm" => opcode target[26]
@@ -210,15 +248,7 @@ def assemble_line(line: str) -> Tuple[str, str, str]:
     elif itype == 'R_SH':
         bits = assemble_bits(encode_R_SH(mnemonic, spec, operands))
     elif itype == 'I':
-        # LW/SW는 "$rt imm($rs)" 형식을 지원
-        if mnemonic in ('LW', 'SW'):
-            if len(operands) != 2:
-                raise ValueError(f"{mnemonic} 형식: {mnemonic} $rt imm($rs)")
-            rt = parse_register(operands[0])
-            imm, rs = parse_offset(operands[1])
-            bits = assemble_bits(spec['opcode'] + to_bin(rs, 5) + to_bin(rt, 5) + to_bin(imm, 16))
-        else:
-            bits = assemble_bits(encode_I(mnemonic, spec, operands))
+        bits = assemble_bits(encode_I(mnemonic, spec, operands))
     elif itype == 'J':
         bits = assemble_bits(encode_J(mnemonic, spec, operands))
     elif itype == 'D':
