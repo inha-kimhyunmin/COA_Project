@@ -91,6 +91,18 @@ def parse_int(token: str) -> int:
         return int(token, 16)
     return int(token)
 
+# 오프셋 형식 파서: "imm($tX)" => (imm, rs)
+def parse_offset(token: str) -> Tuple[int, int]:
+    token = token.strip()
+    # 예: 12($t3)
+    m = re.match(r"^(-?\d+|0x[0-9a-fA-F]+)\((\$t\d+)\)$", token)
+    if not m:
+        raise ValueError(f"오프셋 형식이 올바르지 않습니다: '{token}' (예: 12($t3))")
+    imm_str, rs_tok = m.group(1), m.group(2)
+    imm = parse_int(imm_str)
+    rs = parse_register(rs_tok)
+    return imm, rs
+
 # ==========================
 # 각 타입 인코더
 # ==========================
@@ -109,11 +121,12 @@ def encode_R(opcode: str, funct: str, rs: int, rt: int, rd: int, sh: int = 0) ->
 # 사용자 규칙에 따라 rs, rt 제공; rd는 0 고정.
 def encode_R_SLL(mn: str, spec: Dict[str, str], operands: List[str]) -> str:
     if len(operands) != 3:
-        raise ValueError(f"{mn} expects: {mn} $tX $tY imm")
-    rs = parse_register(operands[0])
-    rt = parse_register(operands[1])
+        raise ValueError(f"{mn} 형식: {mn} rd rs imm")
+    rd = parse_register(operands[0])
+    rs = parse_register(operands[1])
     sh = parse_int(operands[2])
-    return encode_R(spec['opcode'], spec['funct'], rs, rt, 0, sh)
+    # SLL/SRL/SRA: rt는 0으로 고정
+    return encode_R(spec['opcode'], spec['funct'], rs, 0, rd, sh)
 
 # JR: "JR $tX"  => rs; rt=rd=sh=0
 def encode_R_JR(mn: str, spec: Dict[str, str], operands: List[str]) -> str:
@@ -197,7 +210,15 @@ def assemble_line(line: str) -> Tuple[str, str, str]:
     elif itype == 'R_SH':
         bits = assemble_bits(encode_R_SH(mnemonic, spec, operands))
     elif itype == 'I':
-        bits = assemble_bits(encode_I(mnemonic, spec, operands))
+        # LW/SW는 "$rt imm($rs)" 형식을 지원
+        if mnemonic in ('LW', 'SW'):
+            if len(operands) != 2:
+                raise ValueError(f"{mnemonic} 형식: {mnemonic} $rt imm($rs)")
+            rt = parse_register(operands[0])
+            imm, rs = parse_offset(operands[1])
+            bits = assemble_bits(spec['opcode'] + to_bin(rs, 5) + to_bin(rt, 5) + to_bin(imm, 16))
+        else:
+            bits = assemble_bits(encode_I(mnemonic, spec, operands))
     elif itype == 'J':
         bits = assemble_bits(encode_J(mnemonic, spec, operands))
     elif itype == 'D':
