@@ -71,8 +71,8 @@ module Reg_TOP (
     );
     
     assign imm_out = {{16{imm[15]}}, imm};
-    assign op_out = op;
-    assign fn_out = funct;
+    // assign op_out = op;
+    // assign fn_out = funct;
     assign jta_out = jta;
 
     // ============================

@@ -57,15 +57,15 @@ module Stage1(
         .clk(clk),
         .MemRead(MemRead),
         .MemWrite(MemWrite),
-        .address(address),
-        .write_data(data_y),
-        .read_data(instr_data_out)
+        .addr(address),
+        .in_data(data_y),
+        .out_data(instr_data_out)
     );
 
     assign current_pc = pc_wire;
     
     initial begin
         $display("Loading imem.mem into cache_mem.mem");
-        $readmemh("imem.mem", Cache_inst.mem);
+        $readmemh("imem2.mem", Cache_inst.mem);
     end
 endmodule

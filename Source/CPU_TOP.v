@@ -40,7 +40,10 @@ module CPU_TOP(
     output [31:0] dbg_y,
     output [31:0] dbg_alu_out,
     output [31:0] dbg_z,
-    output        dbg_alu_zero
+    output        dbg_alu_zero,
+    
+    output [31:0] x_mux_out_dbg,
+    output [31:0] y_mux_out_dbg
     );
     
     // ctrl
@@ -117,7 +120,7 @@ module CPU_TOP(
 
         .instr_in(inst_data_w),// === IR 입력 ===
         .data_in(inst_data_w), // === Data Reg 입력 ===
-        .alu_out(alu_out_w), // === ALUOut 입력 ===
+        .alu_out(z_reg_out_w), // === ALUOut 입력 ===
         .ctrl_in(ctrl_w), // === Control Signal ===
         
         .rs_data_out(rs_w),
@@ -132,6 +135,8 @@ module CPU_TOP(
     ALU_TOP u_ALU_TOP(
         .clk(clk),
         .reset(reset),
+        .op(op_w),
+        .fn(fn_w),
         
         .pc_in(pc_w), // 0
         .z_in(z_reg_out_w), // 2
@@ -148,7 +153,9 @@ module CPU_TOP(
         .ctrl_dbg(), // not use
         .alu_logic_dbg(), // not use
         .alu_shift_dbg(), // not use
-        .alu_arith_dbg() // not use
+        .alu_arith_dbg(), // not use
+        .x_mux_out_dbg(x_mux_out_dbg),
+        .y_mux_out_dbg(y_mux_out_dbg)
     );
     
     // 4

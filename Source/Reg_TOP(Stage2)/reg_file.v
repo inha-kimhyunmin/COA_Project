@@ -24,25 +24,25 @@ module reg_file (
     input clk,
     input rst,
 
-    // ë ˆì§€ìŠ¤í„° ì¸ë±ìŠ¤ ì„ íƒ
+    // ? ˆì§??Š¤?„° ?¸?±?Š¤ ?„ ?ƒ
     input  [4:0] rs_idx,
     input  [4:0] rt_idx,
-    input  [4:0] write_idx,  // muxì—ì„œ ì„ íƒëœ ëª©ì ì§€ ì¸ë±ìŠ¤
+    input  [4:0] write_idx,  // mux?—?„œ ?„ ?ƒ?œ ëª©ì ì§? ?¸?±?Š¤
 
-    // ë ˆì§€ìŠ¤í„° ì“°ê¸°
+    // ? ˆì§??Š¤?„° ?“°ê¸?
     input        RegWrite,
     input [31:0] write_data,
 
-    // ë ˆì§€ìŠ¤í„° ì½ê¸°
+    // ? ˆì§??Š¤?„° ?½ê¸?
     output [31:0] rs_data,
     output [31:0] rt_data
 );
 
-  // 32ê°œ 32-bit ë ˆì§€ìŠ¤í„°
+  // 32ê°? 32-bit ? ˆì§??Š¤?„°
   reg [31:0] regs[0:31];
   integer i;
 
-  // ë¦¬ì…‹ ì‹œ ëª¨ë“  ë ˆì§€ìŠ¤í„° 0ìœ¼ë¡œ ì´ˆê¸°í™”
+  // ë¦¬ì…‹ ?‹œ ëª¨ë“  ? ˆì§??Š¤?„° 0?œ¼ë¡? ì´ˆê¸°?™”
   always @(posedge clk or posedge rst) begin
     if (rst) begin
       for (i = 0; i < 32; i = i + 1)
@@ -52,7 +52,7 @@ module reg_file (
     end
   end
 
-  // ì½ê¸°ëŠ” í•­ìƒ ì¡°í•© ë…¼ë¦¬ (readëŠ” ë¹„ë™ê¸°)
+  // ?½ê¸°ëŠ” ?•­?ƒ ì¡°í•© ?…¼ë¦? (read?Š” ë¹„ë™ê¸?)
   assign rs_data = regs[rs_idx];
   assign rt_data = regs[rt_idx];
 

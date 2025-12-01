@@ -1,24 +1,4 @@
 `timescale 1ns / 1ps
-//////////////////////////////////////////////////////////////////////////////////
-// Company: 
-// Engineer: 
-// 
-// Create Date: 2025/11/18 21:18:49
-// Design Name: 
-// Module Name: Controller_FSM
-// Project Name: 
-// Target Devices: 
-// Tool Versions: 
-// Description: 
-// 
-// Dependencies: 
-// 
-// Revision:
-// Revision 0.01 - File Created
-// Additional Comments:
-// 
-//////////////////////////////////////////////////////////////////////////////////
-
 
 module Controller_FSM(
     input        clk,
@@ -35,21 +15,19 @@ module Controller_FSM(
     output [21:0]ctrl_dbg
     );
     
-  // ?†àÏß??ä§?Ñ∞
   reg [3:0] next_state;
-  reg [5:0] op, funct;
+  // reg [5:0] op, funct;
   
-  // ===== ?ÉÅ?Éú ?†ï?ùò =====
   localparam S0 = 4'd0,  // Fetch
              S1 = 4'd1,  // Decode
-             S2 = 4'd2,  // ?†ëÍ∑? Ï£ºÏÜå Í≥ÑÏÇ∞ (LW/SW Í≥µÌÜµ)
+             S2 = 4'd2,  // 
              S3 = 4'd3,  // MemRead (LW)
              S4 = 4'd4,  // WriteBack (LW)
              S5 = 4'd5,  // Branch/Jump
              S6 = 4'd6,  // MemWrite (SW)
-             S7 = 4'd7,  // ALU-type 1Ï∞? ?ó∞?Ç∞
+             S7 = 4'd7,  // ALU-type 
              S8 = 4'd8,  // ALU-type WB
-             S9 = 4'd9,  // SLXOR/SRXOR 2Ï∞? ?ó∞?Ç∞ ?ã®Í≥?
+             S9 = 4'd9,  // SLXOR/SRXOR 
              S10= 4'd10, // DXOR 1
              S11= 4'd11, // DXOR 2
              S12= 4'd12; // DXOR WB
@@ -163,86 +141,89 @@ localparam [1:0]
   FT_ARITH = 2'b00, // ADD SUB
   FT_LOGIC = 2'b01, // and/or/xor/nor
   FT_SHIFT = 2'b10, // sll/srl/sra/rot
-  FT_COMARE  = 2'b11, // ÎπÑÍµê?
+  FT_COMARE  = 2'b11, // 
   
   LF_0 = 2'b00, // ADD / AND / ROT
   LF_1 = 2'b01, // SUB / OR / SLL
   LF_2 = 2'b10, //     / XOR / SRL
   LF_3 = 2'b11; //     / NOR / SRA
   
-  // ===== IR (S0?óê?ÑúÎß? ?ûòÏπ?) =====
-  always @(posedge clk or posedge reset) begin
-    if (reset) begin
-      op    <= 6'd0;
-      funct <= 6'd0;
-    end else if (state == S0) begin
-      op    <= op_in;
-      funct <= funct_in;
-    end
-  end
+  // wire s0_ready = (next_state != S0);
 
-  // ===== opcode ?îîÏΩîÎìú =====
-  wire isR      = (op == OP_RTYPE);
-  wire isRArith  = isR && (funct[5:2] == 4'b1000); // ?çß?Öà
-  wire isRLogic  = isR && (funct[5:2] == 4'b1001); // ?ÖºÎ¶?
-  wire isRShift  = isR && (funct[5:2] == 4'b0000); // ?ù¥?èô
+  // ===== opcode  =====
+  wire isR      = (op_in == OP_RTYPE);
+  wire isRArith  = isR && (funct_in[5:2] == 4'b1000); // 
+  wire isRLogic  = isR && (funct_in[5:2] == 4'b1001); // 
+  wire isRShift  = isR && (funct_in[5:2] == 4'b0000); // 
   // wire isRCompare = 
-  wire isALUF0 = isR && (funct[1:0] == 2'b00); // + and Rot
-  wire isALUF1 = isR && (funct[1:0] == 2'b01); // - or SLL
-  wire isALUF2 = isR && (funct[1:0] == 2'b10); //   xor SRL
-  wire isALUF3 = isR && (funct[1:0] == 2'b11); //   nor SRA
+  wire isALUF0 = isR && (funct_in[1:0] == 2'b00); // + and Rot
+  wire isALUF1 = isR && (funct_in[1:0] == 2'b01); // - or SLL
+  wire isALUF2 = isR && (funct_in[1:0] == 2'b10); //   xor SRL
+  wire isALUF3 = isR && (funct_in[1:0] == 2'b11); //   nor SRA
   // wire isRJump?
-  wire isRJump = isR && (funct[5:3] == 3'b001);
-  wire isJR = isR && (funct == F_JR);
-  wire isSYSCALL = isR && (funct == F_SYSCALL);
+  wire isRJump = isR && (funct_in[5:3] == 3'b001);
+  wire isJR = isR && (funct_in == F_JR);
+  wire isSYSCALL = isR && (funct_in == F_SYSCALL);
   
-  wire isADD    = isR && (funct == F_ADD);
-  wire isSUB    = isR && (funct == F_SUB);
-  wire isAND    = isR && (funct == F_AND);
-  wire isOR     = isR && (funct == F_OR);
-  wire isXOR    = isR && (funct == F_XOR);
-  wire isNOR    = isR && (funct == F_NOR);
-  wire isROT    = isR && (funct == F_ROT);
-  wire isSLL    = isR && (funct == F_SLL);
-  wire isSRL    = isR && (funct == F_SRL);
-  wire isSRA    = isR && (funct == F_SRA);
-  wire isSLXOR  = isR && (funct == F_SLXOR);
-  wire isSRXOR  = isR && (funct == F_SRXOR);
-  wire isDXOR   = isR && (funct == F_DXOR);
+  wire isADD    = isR && (funct_in == F_ADD);
+  wire isSUB    = isR && (funct_in == F_SUB);
+  wire isAND    = isR && (funct_in == F_AND);
+  wire isOR     = isR && (funct_in == F_OR);
+  wire isXOR    = isR && (funct_in == F_XOR);
+  wire isNOR    = isR && (funct_in == F_NOR);
+  wire isROT    = isR && (funct_in == F_ROT);
+  wire isSLL    = isR && (funct_in == F_SLL);
+  wire isSRL    = isR && (funct_in == F_SRL);
+  wire isSRA    = isR && (funct_in == F_SRA);
+  wire isSLXOR  = isR && (funct_in == F_SLXOR);
+  wire isSRXOR  = isR && (funct_in == F_SRXOR);
+  wire isDXOR   = isR && (funct_in == F_DXOR);
 
-  wire isIAlu   = (op[5:3] == 3'b001); // ADDI, ANDI, ORI, XORI
-  wire isIArith = (op[5:2] == 4'b0010); // ?çß?Öà
-  wire isILogic = (op[5:2] == 4'b0011); // ?ÖºÎ¶?
-  wire isIALUF0  = (op[1:0] == 2'b00); // + and
-  wire isIALUF1  = (op[1:0] == 2'b01); // - or
-  wire isIALUF2  = (op[1:0] == 2'b10); //   xor
-  // wire isIALUF3  = (op[1:0] == 2'b11); //   nor
+  wire isIAlu   = (op_in[5:3] == 3'b001); // ADDI, ANDI, ORI, XORI
+  wire isIArith = (op_in[5:2] == 4'b0010); //
+  wire isILogic = (op_in[5:2] == 4'b0011); // 
+  wire isIALUF0  = (op_in[1:0] == 2'b00); // + and
+  wire isIALUF1  = (op_in[1:0] == 2'b01); // - or
+  wire isIALUF2  = (op_in[1:0] == 2'b10); //   xor
+  // wire isIALUF3  = (op_in[1:0] == 2'b11); //   nor
   
-  wire isADDI   = (op == OP_ADDI);
-  wire isSUBI   = (op == OP_SUBI);
-  wire isANDI   = (op == OP_ANDI);
-  wire isORI    = (op == OP_ORI);
-  wire isXORI   = (op == OP_XORI);
-  wire isLW     = (op == OP_LW);
-  wire isSW     = (op == OP_SW);
-  wire isBEQ    = (op == OP_BEQ); // op[5:2] = 4'b0001 Î¨∂Ïúº?†§Î©? Î¨∂ÏùÑ ?àò ?ûà?ùÑ ?ìØ
-  wire isBNE    = (op == OP_BNE); // op[5:2] = 4'b0001 Î¨∂Ïúº?†§Î©? Î¨∂ÏùÑ ?àò ?ûà?ùÑ ?ìØ
+  wire isADDI   = (op_in == OP_ADDI);
+  wire isSUBI   = (op_in == OP_SUBI);
+  wire isANDI   = (op_in == OP_ANDI);
+  wire isORI    = (op_in == OP_ORI);
+  wire isXORI   = (op_in == OP_XORI);
+  wire isLW     = (op_in == OP_LW);
+  wire isSW     = (op_in == OP_SW);
+  wire isBEQ    = (op_in == OP_BEQ); // op[5:2] = 4'b0001 
+  wire isBNE    = (op_in == OP_BNE); // op[5:2] = 4'b0001 
   
-  wire isJ      = (op == OP_J);
-  wire isJAL    = (op == OP_JAL);
+  wire isJ      = (op_in == OP_J);
+  wire isJAL    = (op_in == OP_JAL);
+  
+  wire isR_valid =
+    isADD || isSUB || isAND || isOR || isXOR || isNOR ||
+    isROT || isSLL || isSRL || isSRA ||
+    isSLXOR || isSRXOR || isDXOR || isJR || isSYSCALL;
+  wire op_valid = isR || isIAlu || isLW || isSW || isBEQ || isBNE || isJ || isJAL || isDXOR;
 
-  // ===== Next-State Logic (IR Í∞íÎßå ?Ç¨?ö©) =====
+
+  // ===== Next-State Logic (IR) =====
   always @* begin
     next_state = S0;  // default
     case (state)
-      S0: next_state = S1;
+      S0:
+          if (!reset && op_valid) next_state = S1;    // °⁄ opcode∞° ¿Ø»ø«“ ∂ß∏∏ Decode∑Œ
+          else  next_state = S0;    // æ∆¥œ∏È ∞Ëº” Fetch∏∏ π›∫π
 
       S1: begin
-        if      (isDXOR)           next_state = S10; // DXOR
-        else if (isLW || isSW)     next_state = S2;  // Ï£ºÏÜå Í≥ÑÏÇ∞
-        else if (isBEQ || isBNE || isRJump)     next_state = S5;  // Î∂ÑÍ∏∞/?†ê?îÑ
-        else if (isR || isIAlu)    next_state = S7;  // ?ùºÎ∞? ALU-type Î∂ÑÍ∏∞?†ê
-        else                       next_state = S0; // Jtype ?? Î∞îÎ°ú 0?úºÎ°? Î∂ÑÍ∏∞
+      if (!op_valid) begin
+        next_state = S1;
+      end
+        else if      (isDXOR)           next_state = S10; // DXOR
+        else if (isLW || isSW)     next_state = S2;  // 
+        else if (isBEQ || isBNE || isRJump)     next_state = S5;  // 
+        else if (isR || isIAlu)    next_state = S7;  // 
+        else                       next_state = S0; // 
       end
 
       S2:  next_state = (isLW ? S3 : S6); // S1?óê?Ñú Í≤∞Ï†ï?êú op Í∏∞Ï?
@@ -255,7 +236,7 @@ localparam [1:0]
       S8:  next_state = S0;
       S9:  next_state = S8;
 
-      S10: next_state = S11; // DXOR 1?Üí2?Üí3
+      S10: next_state = S11; // DXOR 
       S11: next_state = S12;
       S12: next_state = S0;
 
@@ -269,7 +250,7 @@ always @* begin
   ctrl_out = 22'd0;
   case (state)
     S0: begin
-      // ctrl_out[INSTDATA] = INSTDATA_PC;
+      ctrl_out[INSTDATA] = 1'b0;
       ctrl_out[MEMREAD]  = MR_Y;
       // ctrl_out[MEMWRITE]  = MW_N;
       ctrl_out[IRWRITE]  = IRW_Y;
@@ -284,6 +265,7 @@ always @* begin
       // ctrl_out[REGWRITE] = RW_N;
       ctrl_out[IRWRITE]  = IRW_N;
       ctrl_out[ALUSRCY1:ALUSRCY0] = AY_X4;
+      ctrl_out[MEMREAD]  = 1'b0;
       
       // J ???ûÖ
       ctrl_out[PCWRITE]  = (isJ || isJAL) ? PCW_Y : PCW_N;
@@ -306,6 +288,7 @@ always @* begin
     
     S4: begin
       ctrl_out[REGWRITE]  = RW_Y;
+      ctrl_out[MEMREAD]  = MR_Y;
     end
     
     S5: begin // ?ó¨Í∏∞Îäî RJump Îß?
@@ -384,7 +367,7 @@ always @* begin
 end
 //
 
-  // ===== ?ÉÅ?Éú ?†àÏß??ä§?Ñ∞ =====
+  // =====  =====
   always @(posedge clk or posedge reset) begin
     if (reset)
       state <= S0;
@@ -392,7 +375,7 @@ end
       state <= next_state;
   end
   
- assign op_dbg    = op;
- assign funct_dbg = funct;
+ assign op_dbg    = op_in;
+ assign funct_dbg = funct_in;
  assign ctrl_dbg = ctrl_out;
 endmodule

@@ -35,7 +35,7 @@ module instr_reg (
 
   always @(posedge clk or posedge reset) begin
     if (reset)
-      instr <= 32'b0;
+      ;//instr <= 32'b0;
     else if (IRWrite)
       instr <= instr_in;
   end
