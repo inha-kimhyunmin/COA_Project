@@ -7,7 +7,7 @@
 - **구성:** Verilog 기반 4-Stage 파이프라인과 Python 어셈블러(32-bit)
 
 ## 아키텍처
-![CPU Pipeline Diagram](./docs/images/cpu_pipeline.png)
+![CPU Pipeline Diagram](./image01.png)
 - Stage 1: `PC`/`Cache`/Instr Fetch
 - Stage 2: `Reg file`/Decode/Imm 처리
 - Stage 3: `ALU` + Shift/Logic/Adder
