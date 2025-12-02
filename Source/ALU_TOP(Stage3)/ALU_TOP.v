@@ -58,6 +58,7 @@ module ALU_TOP(
     wire [31:0] alu_logic_w;     // alu_logic_unit Ãâ·Â
     wire [31:0] alu_shift_w;     //
     wire [31:0] alu_arith_w;     //
+    wire [31:0] alu_compare_w;
     
     wire [31:0] alu_w;
     wire [3:0] fn_code_w;
@@ -128,6 +129,7 @@ module ALU_TOP(
             2'b00: alu_mux_r = alu_arith_w;    // 
             2'b01: alu_mux_r = alu_logic_w;       // 
             2'b10: alu_mux_r = alu_shift_w;     // 
+            2'b11: alu_mux_r = {31'b0, alu_arith_w[31]};     // ALU ³»ºÎ¿¡¼­ »Ì¾Æ¿È
             default: alu_mux_r = 32'd0;
         endcase
     end

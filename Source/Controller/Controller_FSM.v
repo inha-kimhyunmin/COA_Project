@@ -46,9 +46,12 @@ module Controller_FSM(
              OP_SW     = 6'b101011,
              OP_BEQ    = 6'b000100,
              OP_BNE    = 6'b000101,
+             
+             OP_SLTI = 6'b001011,
             // J-type
              OP_J      = 6'b000010,
              OP_JAL    = 6'b000011;
+             //
 
   // Funct field [5:0] (only valid when opcode == OP_RTYPE)
   localparam [5:0]
@@ -69,7 +72,8 @@ module Controller_FSM(
   // Custom operations
              F_SLXOR    = 6'b101001,
              F_SRXOR    = 6'b101010,
-             F_DXOR     = 6'b110010;
+             F_DXOR     = 6'b110010,
+             F_SLT = 6'b111000;
  
   // 22-bit Control Bit Mapping
     localparam integer
@@ -178,6 +182,7 @@ localparam [1:0]
   wire isSLXOR  = isR && (funct_in == F_SLXOR);
   wire isSRXOR  = isR && (funct_in == F_SRXOR);
   wire isDXOR   = isR && (funct_in == F_DXOR);
+  wire isSLT = isR && (funct_in == F_SLT);
 
   wire isIAlu   = (op_in[5:3] == 3'b001); // ADDI, ANDI, ORI, XORI
   wire isIArith = (op_in[5:2] == 4'b0010); //
@@ -199,6 +204,8 @@ localparam [1:0]
   
   wire isJ      = (op_in == OP_J);
   wire isJAL    = (op_in == OP_JAL);
+  
+  wire isSLTI = (op_in == OP_SLTI);
   
   wire isR_valid =
     isADD || isSUB || isAND || isOR || isXOR || isNOR ||
@@ -222,7 +229,7 @@ localparam [1:0]
         else if      (isDXOR)           next_state = S10; // DXOR
         else if (isLW || isSW)     next_state = S2;  // 
         else if (isBEQ || isBNE || isRJump)     next_state = S5;  // 
-        else if (isR || isIAlu)    next_state = S7;  // 
+        else if (isR || isIAlu || isSLTI || isSLT)    next_state = S7;  // 
         else                       next_state = S0; // 
       end
 
@@ -308,18 +315,19 @@ always @* begin
     
     S7: begin
       ctrl_out[ALUSRCX1:ALUSRCX0] = AX_XR;
-      ctrl_out[ALUSRCY1:ALUSRCY0] = (isROT || isRArith || isRLogic) ? AY_YR :
-                                    (isSLXOR || isSRXOR || isRShift || isIAlu) ? AY_IMM
+      ctrl_out[ALUSRCY1:ALUSRCY0] = (isROT || isRArith || isRLogic || isSLT) ? AY_YR :
+                                    (isSLXOR || isSRXOR || isRShift || isIAlu || isSLTI) ? AY_IMM
                                     : 2'b00;
       // rot ?óá?ÇòÍ∞??Ñú ?òº?ûê ÎπºÏïº?ê®
       
-      ctrl_out[LOGICFN1:LOGICFN0] = (isALUF1 || isIALUF1) ? LF_1 :
+      ctrl_out[LOGICFN1:LOGICFN0] = (isALUF1 || isIALUF1 || isSLTI || isSLT) ? LF_1 :
                                   (isALUF2 || isIALUF2) ? LF_2 :
                                   (isALUF3) ? LF_3 :
                                   2'b00;
                                   
       ctrl_out[FNTYPE1:FNTYPE0] = (isRLogic || isILogic) ? FT_LOGIC :
                                   (isSLXOR || isSRXOR || isRShift) ? FT_SHIFT :
+                                  (isSLTI || isSLT) ? FT_COMARE :
                                   2'b00;
                                   
       // ctrl_out[FNTYPE1:FNTYPE0] = (isRLogic) ? FT_LOGIC : (isRShift) ? FT_SHIFT : (isRCompare) ? FT_COMARE : 2'b00;
