@@ -72,6 +72,7 @@ INSTR_SPECS: Dict[str, Dict[str, str]] = {
     'NOR':     {'type': 'R',      'opcode': '000000', 'funct': '100111'},
     'ROT':  {'type': 'R',      'opcode': '000000', 'funct': '000000'},  # As per table; adjust usage format if needed
     'JR':      {'type': 'R_JR',   'opcode': '000000', 'funct': '001000'},
+    'SLT': {'type': 'R',   'opcode': '000000', 'funct': '111000'},
     'SYSCALL': {'type': 'R',      'opcode': '000000', 'funct': '001100'},  # If used, consider zero-operand handling
 
     # R-type shifts special formats (SLL/SRL/SRA use R_SLL rules)
@@ -96,6 +97,7 @@ INSTR_SPECS: Dict[str, Dict[str, str]] = {
     'SW':      {'type': 'I',      'opcode': '101011'},
     'BEQ':     {'type': 'I',      'opcode': '000100'},
     'BNE':     {'type': 'I',      'opcode': '000101'},
+    'SLTI':     {'type': 'I',      'opcode': '001011'},
 
     # J-type opcodes
     'J':       {'type': 'J',      'opcode': '000010'},
